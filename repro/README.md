@@ -30,6 +30,8 @@
 | `32_verify_topn.py` | **前端实际接口**（`/visualization/data`）评测，node/index/shard，含细桶与全量排序对照 | 否 |
 | `33_topn_edge.py` | 视图 TopN 边界评测（面积/颜色、shard 数据源、Top>实体数） | 否 |
 | `34_raw_long_window.py` | raw 长窗受控实验：连续/断档合成的桶宽矩阵（独立于 00–41 主流程） | 否 |
+| `35_rollup_seed.py` | 生产密度（10s）合成数据 + Console 自带 rollup 作业一键引导（rollup vs raw A/B 数据基座，独立实验） | 否 |
+| `36_rollup_ab_bench.py` | rollup A/B 基准：raw / 原生改写 / 直查产物三路径的正确性对照与耗时对比（与 35 配套，独立实验） | 否 |
 | `common.py` | 公共 helper：HTTP / 登录 / 真值算法 / 采样读取 / 造数工具（各脚本复用） | — |
 | `40_run_all.sh` | 一键：索引页签一轮评测 | 否 |
 | `41_run_node.sh` | 一键：节点页签一轮评测 | 否 |
@@ -170,6 +172,7 @@ work/report/topn_view_*.md  / .json     视图接口评测（32）
 work/report/topn_view_edge_*.json       边界评测（33）
 work/raw/long_window_*.json             长窗实验 manifest（34）
 work/report/raw_long_window_*.json      长窗实验结果（34）
+work/rollup/rollup_*.json               rollup A/B manifest（35 产，36 消费）
 ```
 
 ## 性能基准（与上面评测流程无关，可单独运行）
@@ -206,6 +209,54 @@ python3 benchmark_topn.py --counts 24 --windows 900 --runs 2 --warmup 1
 - 留档结果见 `../reports/perf_topn_benchmark.{md,json}`（Easysearch 2.1.2、
   Apple M4、单并发，非生产端到端）。
 - 脚本测完默认删除本次造出的 `topn-bench-*` 索引；`--keep-data` 保留。
+
+## Rollup A/B 基准（35 + 36，独立实验）
+
+量化「TopN 长窗改用 Console 自带 rollup」的收益与代价。`35` 按生产密度（默认 10s 采样，
+真实 `.infini_metrics` 同款）往**独立索引**造数并一键创建/启动 Console setup 自带的
+`index_stats` rollup 作业；`36` 读 manifest 做三路径对照：
+
+- `raw`：关闭改写查源索引（等价 Console 现有 raw 路径查询形状）
+- `native`：同一 DSL + `enable_rollup=true`（Easysearch 自动改写，Console 改动最小）
+- `direct`：手写缩写字段 DSL 直查 rollup 产物（最快，需自维护翻译层）
+
+```bash
+# 冒烟：4 实体 × 10s × 30min，含 rollup 作业跑完，再验正确性
+python3 35_rollup_seed.py --seed --rollup --days 0.02 --entities 4 \
+    --tag smoke --store http://127.0.0.1:19222 --timeout 300
+python3 36_rollup_ab_bench.py --tag smoke --store http://127.0.0.1:19222
+
+# 30 天完整基座（1660 万条，灌数约 7 分钟 + rollup 约 40 分钟）与基准
+python3 35_rollup_seed.py --seed --rollup --days 30 --tag 30d \
+    --store http://127.0.0.1:19222 --timeout 3600
+python3 36_rollup_ab_bench.py --tag 30d
+
+python3 35_rollup_seed.py --cleanup --tag smoke --store http://127.0.0.1:19222
+```
+
+**实测基线（2026-11-25，Easysearch 3.0.0 单节点，64 实体 × 30d = 16,588,800 条 →
+rollup 2,764,800 条；8h 桶 ×90，Top20 + Top5 曲线，36 号脚本交错实测，p50/p95 ms）**：
+
+| 路径 | 墙钟（数据预热后，12 轮） | 首次冷缓存实测（28 轮） | 说明 |
+|---|---|---|---|
+| raw | 155/178 | 668/704 | 现有路径 |
+| native | **20/25** | 25/47 | 预热后比 raw 快约 7 倍，冷缓存下约 27 倍 |
+| direct | 44/51 | 129/140 | 需自维护翻译层 |
+
+整分钟闭合窗口下三路径排序与全部曲线点一致（1e-6 容差，float32 噪声 ~1e-7）。
+
+**两个硬性前提**（36 会自动校验并告警）：
+
+1. **窗口必须整分钟闭合**（min 对齐分钟起点、max 对齐分钟结尾）。否则 rollup 边界
+   分钟把窗外样本计入：实测数值偏高 3e-5~6e-5，且可能换榜。生产图表窗口结束于
+   「现在」，历史部分天然满足；尾端 live 部分照走 raw 即可。
+2. **原生改写命中条件**：查询带作业过滤项（`metadata.name`）、`size:0`、单个顶层
+   聚合、字段被作业收录、精确 terms ACL。通配符 ACL、指标数值过滤（`gte:0`）会让
+   改写**静默回退 raw**——为命中而修剪 DSL 时，逐样本 `gte:0` 的语义在 rollup 侧
+   无法表达（指标可能为负时不安全）。
+
+另：rollup 作业对 30 天历史的一次性回填约 40 分钟（单节点、page_size 3000），
+之后每 5 分钟增量成本很小；迟到样本不会进入已生成的 rollup 分钟。
 
 ## 常见问题
 

@@ -106,10 +106,14 @@ def seed(args, p):
     days = args.days
     step_ms = args.interval * 1000
     steps = int(days * 86400 * 1000) // step_ms
-    # 整分钟对齐，且整体早于 now-24h：rollup 引擎要窗口结束+1h，24h 也是查询切换阈值。
+    # 整分钟对齐（含 days 很小的冒烟），且整体早于 now-24h：rollup 引擎要窗口结束+1h，
+    # 24h 也是查询切换阈值。end = 最后一个完整分钟起点，36 依赖它做整分钟闭合。
     now_min = int(time.time() * 1000) // 60000 * 60000
-    start = now_min - (int(days * 86400) + 7200) * 1000
+    offset_sec = (int(days * 86400) + 7200) // 60 * 60
+    start = now_min - offset_sec * 1000
     span = steps * step_ms
+    covered = span // 60_000
+    assert covered >= 1, f'窗口不足 1 分钟：days={days} interval={args.interval}'
 
     st, resp = http('PUT', f'{args.store}/{p["src"]}', {
         'settings': {'number_of_shards': 1, 'number_of_replicas': 0, 'refresh_interval': '-1'},
@@ -140,7 +144,7 @@ def seed(args, p):
     st, resp = http('POST', f'{args.store}/{p["src"]}/_refresh')
     assert st == 200, (st, resp)
     count = http('GET', f'{args.store}/{p["src"]}/_count')[1]['count']
-    manifest = {'store': args.store, 'start': start, 'end': start + span - 60_000,
+    manifest = {'store': args.store, 'start': start, 'end': start + (covered - 1) * 60_000,
                 'days': days, 'interval_sec': args.interval, 'entities': args.entities,
                 'docs': total, 'count': count, 'seed_seconds': round(time.time() - t0, 1),
                 'cluster': cluster, 'entity_prefix': f'{cluster}-e'}
@@ -202,7 +206,8 @@ def show_status(args, p):
 
 
 def cleanup(args, p):
-    for name in (f'_rollup/jobs/{p["job"]}', f'/{p["src"]}', f'/{p["dst"]}'):
+    # rollup 目标是 rollover 后备索引（rollup_topn_<tag>-000001），用通配符连别名一起删。
+    for name in (f'_rollup/jobs/{p["job"]}', f'/{p["src"]}', f'/{p["dst"]}*?expand_wildcards=all'):
         st, resp = http('DELETE', f'{args.store}/{name}' if name.startswith('_') else f'{args.store}{name}')
         print(f'[cleanup] {name}: {st}')
     if os.path.exists(p['manifest']):
