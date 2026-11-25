@@ -36,6 +36,10 @@
 
 原实验中 100 实体 / 24h 存储榜两路径的 p50 约相差 22 倍；不同算法的准确性和成本应结合完整报告解释，不能推广为当前端到端性能。
 
+## 后台扫描长窗基准（2026-11-25）
+
+Console 分支 [`work/async-raw-longwindow`](https://github.com/tlfeng/console/tree/work/async-raw-longwindow)（`b82b1de8`，基于 `fix/agentless-metric-topn-raw`）把 ≥24h 自动榜改为内存注册表后台扫描。隔离 Easysearch 2.1.2（Apple M4 / 1 GiB 堆）上 1,396 实体 × 5 分钟采样 × 30 天（12,196,852 条）实测 30d/8h 默认粒度四图：交互路径 48 页即 budget_exceeded（25.4-52.2 MB 累计响应）；后台首算 5.4-8.3s / 68 搜索并逐点真值校验通过；缓存命中 ≈0.3ms / 0 搜索；4 并发冷启动共享一次扫描。查询层实测，仅速率/时延四图；条件与上下两节历史记录均不可比。完整数据与复现操作卡见 [async_longwindow_benchmark.md](async_longwindow_benchmark.md)。
+
 ## 当前流程如何记录
 
 按 [操作卡](../repro/README.md) 在隔离测试环境启动 Console + store，使用 `09` 的 fill / stream 注入 index 和 node 指标，再按需 resample 和运行 32/33。记录版本、配置、数据画像、tag、cluster 标签、时间范围、采样间隔、查询参数、具体接口、权限及报告路径；仅在条件和被测对象可比时对照新的后续轮次。
@@ -52,3 +56,4 @@
 | 2026-11-20 | 1.30.3 / 3.0.0 | 索引页签 | 1/23 | 13/23 | 真实集群历史基线 |
 | 2026-11-20 | 1.30.3 / 3.0.0 | 节点页签（可写） | 2/11 | 6/11 | 真实集群历史基线 |
 | 2026-11-20 | 1.30.3 / 3.0.0 | 节点页签（按需只读） | 2/11 | 8/11 | 真实集群历史基线 |
+| 2026-11-25 | work/async-raw-longwindow / 2.1.2 | 30d/8h 后台扫描四图 | — | — | 查询层性能基准，见 async_longwindow_benchmark.md |

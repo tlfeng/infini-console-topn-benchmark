@@ -1,0 +1,73 @@
+{
+  "date": "2026-11-25",
+  "kind": "query-layer long-window background scan",
+  "subject": "Console Advanced Agentless TopN automatic charts via the in-memory background registry (async raw scan)",
+  "console_branch": "tlfeng/console@work/async-raw-longwindow",
+  "console_commit": "b82b1de842c327fcdd9563067596cba6f0077efb",
+  "console_base": "tlfeng/console@fix/agentless-metric-topn-raw 32d02b9c",
+  "framework_commit": "60ace893",
+  "harness": "modules/elastic/api/internal/topn/async_bench_test.go (CONSOLE_TOPN_INTEGRATION=1)",
+  "environment": {
+    "engine": "easysearch 2.1.2 (integ-test-zip + lang-painless-2.1.2 module)",
+    "engine_settings": "script.allowed_types: [inline]",
+    "engine_endpoint": "http://127.0.0.1:19219",
+    "engine_cluster": "console-topn-local-bench",
+    "host": "Apple M4 (darwin arm64), single node, JVM heap 1 GiB",
+    "fixture_index": "topn-fixture-v2-index-2592000",
+    "fixture_docs": 12196852,
+    "fixture_entities": 1396,
+    "fixture_sampling_seconds": 300,
+    "fixture_span_days": 30
+  },
+  "query": {
+    "api": "internal topn Serve path (automatic chart, advanced_topn=true)",
+    "window_days": 30,
+    "bucket_seconds": 28800,
+    "buckets": 91,
+    "top": 5,
+    "page_size_per_search": 21,
+    "searches_per_scan": 68,
+    "wait_budget_seconds": 30,
+    "job_timeout_seconds": 300,
+    "result_cache_ttl_seconds": 60,
+    "truth_check": "ranking order plus every point of all 5 curves per metric, exact to 1e-9"
+  },
+  "metrics": [
+    {
+      "key": "indexing_rate",
+      "interactive_control": {"result": "budget_exceeded", "duration_ms": 3769, "searches": 48, "response_bytes": 25426859},
+      "async_first_compute": {"duration_ms": 5451, "searches": 68, "response_bytes": 35204953},
+      "cache_hit": {"duration_ms": 0.284, "searches": 0},
+      "concurrent_x4_cold": {"duration_ms": 5615, "searches": 68, "response_bytes": 35204953}
+    },
+    {
+      "key": "query_times",
+      "interactive_control": {"result": "budget_exceeded", "duration_ms": 4125, "searches": 48, "response_bytes": 25426859},
+      "async_first_compute": {"duration_ms": 5780, "searches": 68, "response_bytes": 35204953},
+      "cache_hit": {"duration_ms": 0.367, "searches": 0},
+      "concurrent_x4_cold": {"duration_ms": 5811, "searches": 68, "response_bytes": 35204953}
+    },
+    {
+      "key": "indexing_latency",
+      "interactive_control": {"result": "budget_exceeded", "duration_ms": 5903, "searches": 48, "response_bytes": 52227191},
+      "async_first_compute": {"duration_ms": 8169, "searches": 68, "response_bytes": 72367193},
+      "cache_hit": {"duration_ms": 0.3, "searches": 0},
+      "concurrent_x4_cold": {"duration_ms": 8238, "searches": 68, "response_bytes": 72367193}
+    },
+    {
+      "key": "query_latency",
+      "interactive_control": {"result": "budget_exceeded", "duration_ms": 5954, "searches": 48, "response_bytes": 51670775},
+      "async_first_compute": {"duration_ms": 8246, "searches": 68, "response_bytes": 71596601},
+      "cache_hit": {"duration_ms": 0.281, "searches": 0},
+      "concurrent_x4_cold": {"duration_ms": 8268, "searches": 68, "response_bytes": 71596601}
+    }
+  ],
+  "boundaries": [
+    "query-layer measurement against an isolated synthetic engine; not Console end-to-end, browser rendering, multi-user refresh or production collection co-load",
+    "single concurrent first compute per metric plus four cold readers; no sustained load",
+    "counter rate and latency charts only (paged composite path); peak-mode charts use one terms aggregation and were not exercised",
+    "entity ceiling: 150,000 entity-time bucket guard allows ~1,648 entities at 90 buckets; larger sets still reject honestly",
+    "fixture data is fully continuous; production sealed buckets without counter changes still produce empty or partial charts by design",
+    "not comparable with perf_topn_benchmark.md (different API, entities, windows) or 36_rollup_ab_bench.py (different engine version, entity count and rewrite path)"
+  ]
+}
