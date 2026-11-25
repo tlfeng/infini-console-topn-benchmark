@@ -1,291 +1,83 @@
-# TopN 评测脚本包（Easysearch 3.0.0 + Console 1.30.3）
+# TopN 合成指标操作卡
 
-一整套可独立运行的评测脚本：自造数据 → 压测采样 → 与 Console 图表比对。
-本目录**自包含**：脚本、节点分配表都在这里，运行产物写到本目录下的 `work/`。
+当前流程只保留 Console 与 store，不部署或纳管业务集群。请只在可丢弃的隔离测试环境运行：安装、初始化、映射准备和 `09` 都会修改目标环境；确认端口、路径及目标 store 后再执行。不要连接生产数据，也不要把这些命令用于共享存储。
 
-定位、判据与基线快照见上一级 `../README.md`。
+## 前置与启动
 
-## 文件
+- WSL（systemd 可用）、JDK 21、`python3`、`curl`；自行准备 `easysearch-3.0.0-3073-linux-amd64.tar.gz` 和 `console-1.30.3-2407-linux-amd64.tar.gz`。
+- 脚本默认从 `$HOME/test`（不存在时尝试 `/home/user/test`）找安装包，运行目录默认为其下的 `topn`；可通过 `BASE`、`TOPTOOLS`、`PKG_ES`、`PKG_CONSOLE` 配置。使用 sudo 时应确认相关环境变量和路径保持一致。
+- 默认 store 为 `http://127.0.0.1:9200`，Console 为 `http://127.0.0.1:9000`。确认端口没有指向其他服务；systemd 操作需要权限。
 
-| 文件 | 作用 | 是否需要 root |
-|---|---|---|
-| `00_check.sh` | 体检：JDK 21、安装包、命令、端口 | 否 |
-| `01_setup.sh` | 解包 + 双实例配置 + 装 systemd 单元（只装不起） | **是** |
-| `02_start.sh` | 启动：固定 store → biz5 → biz → console | **是** |
-| `03_stop.sh` | 停止：逆序 console → biz5 → biz → store | **是** |
-| `04_status.sh` | 状态总览（端口/集群/纳管/指标入库/最近一轮评测） | 否 |
-| `05_prepare_store.sh` | 预建 `.infini_metrics` 映射（**必须先做**） | 否 |
-| `06_setup_biz5.sh` | 生成 N 节点集群（默认 8）配置与单元并启动 | **是** |
-| `07_tune_memory.sh` | 压内存（堆/直接内存/元空间/线程规模） | **是**（`--apply`） |
-| `08_prepare_system_indices.sh` | 补齐 `.infini_cluster` / `.infini_activities` 的 fielddata 映射（集群管理页 400） | 否 |
-| `09_metrics_feeder.py` | **指标数据维护**：fill 预填充 90 天 / stream 持续写入 / prune 清理旧数据 / status | 否 |
-| `10_seed.py` | 造数：12 个画像索引，可 `--node-map` 钉到指定节点 | 否 |
-| `11_load.py` | 压测：9 类流量；`--no-write` 只读 | 否 |
-| `12_sample.py` | 采样索引 `_stats` → 真值 JSONL | 否 |
-| `14_sample_nodes.py` | 采样 `_nodes/stats` → 节点真值 | 否 |
-| `15_set_readonly.py` | 按画像冻结：写索引可写、其余只读 | 否 |
-| `20_console_init.py` | Console 初始化 + 纳管集群（幂等） | 首次需（要重启 console） |
-| `30_verify.py` | 索引页签老接口（`/index_metrics`）：API 榜单 vs 真 TopN | 否 |
-| `31_verify_node.py` | 节点页签老接口（`/node_metrics`）：API 榜单 vs 真 TopN | 否 |
-| `32_verify_topn.py` | **前端实际接口**（`/visualization/data`）评测，node/index/shard，含细桶与全量排序对照 | 否 |
-| `33_topn_edge.py` | 视图 TopN 边界评测（面积/颜色、shard 数据源、Top>实体数） | 否 |
-| `34_raw_long_window.py` | raw 长窗受控实验：连续/断档合成的桶宽矩阵（独立于 00–41 主流程） | 否 |
-| `35_rollup_seed.py` | 生产密度（10s）合成数据 + Console 自带 rollup 作业一键引导（rollup vs raw A/B 数据基座，独立实验） | 否 |
-| `36_rollup_ab_bench.py` | rollup A/B 基准：raw / 原生改写 / 直查产物三路径的正确性对照与耗时对比（与 35 配套，独立实验） | 否 |
-| `37_rollup_metric_sweep.py` | 全量 TopN 指标 rollup 可行性扫描：107 个指标（index 37 + node 70）逐个对照 rollup 表达 vs raw 精确口径，含对抗实体（计数器重置/换 uuid/分母塌缩/breaker 跳变） | 否 |
-| `common.py` | 公共 helper：HTTP / 登录 / 真值算法 / 采样读取 / 造数工具（各脚本复用） | — |
-| `40_run_all.sh` | 一键：索引页签一轮评测 | 否 |
-| `41_run_node.sh` | 一键：节点页签一轮评测 | 否 |
-| `42_score.py` | 评分卡：汇总本轮报告的 Top5 命中率 / 榜首一致率，对照 `../reports/BASELINE.md` | 否 |
-| `benchmark_topn.py` | 性能基准：三种选榜算法查询层耗时对比（独立于上面的评测流程，见下文「性能基准」） | 否 |
-| `node_map.json` | 索引 → 节点 的画像分配表 | — |
-
-## 前置
-
-- WSL（systemd 可用）、JDK 21+、`python3`、`curl`
-- 两个安装包：`easysearch-3.0.0-3073-linux-amd64.tar.gz`、`console-1.30.3-2407-linux-amd64.tar.gz`
-  默认在 `$HOME/test`（不存在则回退 `/home/user/test`）下查找，可用 `BASE=/path/to/pkgs` 覆盖；
-  也可单独指定 `PKG_ES` / `PKG_CONSOLE`
-- 运行目录默认 `$HOME/test/topn`，可用 `TOPTOOLS=/path` 覆盖
-
-## 一次性搭建
+在仓库 `repro` 目录执行：
 
 ```bash
-cd ~/github/infini-console-topn-benchmark/repro
-
-bash 00_check.sh                 # 体检
-sudo bash 01_setup.sh            # 解包 + 装单元（不启动）
-sudo bash 02_start.sh store      # 先起 9200，下一步依赖它
-bash 05_prepare_store.sh         # ★ 预建指标库映射
-sudo bash 06_setup_biz5.sh 8     # 8 节点集群（生成配置并拉起）
+bash 00_check.sh
+sudo bash 01_setup.sh           # 安装配置与单元，不启动
+sudo bash 02_start.sh store     # 先启动 store
+bash 05_prepare_store.sh        # 在隔离 store 中准备指标映射
+sudo bash 02_start.sh           # 启动 store + Console
+python3 20_console_init.py      # 初始化 Console 与系统索引映射，不注册业务集群
+bash 04_status.sh
 ```
 
-## 每次启动 / 停止
+初始化使用脚本的 `CONSOLE`、`STORE`、`CONSOLE_USER`、`CONSOLE_PASS` 等环境变量；已有环境应核对实际配置。`05` 会安装模板，已有不兼容映射不会因重跑自动修复。不要在含有价值数据的存储上尝试重建。停止服务可用 `sudo bash 03_stop.sh`；不要使用清数据选项作为常规操作。
+
+## 09 离线填充、在线注入和导出
+
+所有选项放在子命令后。默认 `STORE=http://127.0.0.1:9200`、`CLUSTER=topn-biz`、`--tag main`、`--side index`、`--interval 900`；以下显式选择 index 和 node 两侧。`CLUSTER` 是注入的标签，不会创建 Console cluster metadata。
 
 ```bash
-sudo bash 02_start.sh            # 最小可用：store + console
-sudo bash 02_start.sh biz        # 索引页签：store → biz → console
-sudo bash 02_start.sh biz5       # 节点页签：store → biz5 → console
-sudo bash 02_start.sh all        # 全起
-bash 04_status.sh                # 自检
+# 隔离测试 store：填充最近 1 天，5 分钟间隔
+python3 09_metrics_feeder.py fill --side both --days 1 --interval 300 --tag trial
+python3 09_metrics_feeder.py status --side both --tag trial
 
-sudo bash 03_stop.sh             # 全停（逆序）
-sudo bash 03_stop.sh biz5        # 只停 8 节点，省内存
-sudo bash 03_stop.sh --clean     # 全停 + 清数据
+# 前台持续注入，Ctrl-C 停止；默认不自动删除
+python3 09_metrics_feeder.py stream --side both --interval 60 --tag trial
+
+# 在另一个终端按需导出最近 6 小时的同源采样及解析式期望
+python3 09_metrics_feeder.py resample --side both --hours 6 --tag trial
+python3 09_metrics_feeder.py expected --side both --tag trial
 ```
 
-> **顺序不能乱**：Console 最后起。它启动时探测不到某个集群就不会给该集群注册采集任务，
-> 之后集群恢复也不会补注册，指标永久不入库（图恒空）。`02_start.sh` 已内置该顺序，
-> 且在 Console 已运行、又新起集群时会自动重启一次 Console 补注册。
+`fill` 默认 90 天；`stream` 尝试从已有数据续接计数器。`resample` 写入 `repro/work/raw/stats_<tag>_*.jsonl` 和 `nodes_<tag>_*.jsonl`，`--step` 控制导出分桶秒数，默认 10；`expected --out <文件名>` 可写入 `repro/work/rollup/`。按实际采样密度和查询窗口解释结果：填数间隔过稀可能无法形成所需的相邻样本或短窗口速率。
 
-## 评测（复跑一轮）
+`resample` 从注入文档读回数据，**不是独立真值**。`expected` 为基于注入画像的解析式期望，仅覆盖部分排序且与注入器共享假设；不能单凭这两者证明真实集群准确度。合成数据以单调计数器为主，不覆盖重置、乱序等扰动。
 
-### 索引页签（单节点 9201）
+`prune` 和 `stream --auto-prune` 会按标签前缀及维度删除旧数据；前缀并非可靠的生产隔离边界，不能假定按 cluster 完整隔离。默认 stream 不启用自动删除。需要评估时仅在隔离测试 store 先使用 `python3 09_metrics_feeder.py prune --side both --tag trial --dry-run`，核对目标与范围；不提供实际删除作为流程步骤。
+
+## 验证路径与限制
+
+`32` 和 `33` 构造的是 `/elasticsearch/:system_cluster/visualization/data` 视图请求，不是 advanced TopN API。完成注入和 resample 后，可尝试以下请求；`32` 使用最近匹配的采样文件，也可通过 `--samples` 指定准确路径，避免混用轮次：
 
 ```bash
-sudo bash 02_start.sh biz
-sudo python3 20_console_init.py          # 首次纳管
-bash 40_run_all.sh --duration 300        # 造数 + 压测 + 采样 + 比对
-bash 40_run_all.sh --skip-seed --duration 120 --freeze   # 复用数据 + 按需只读
+python3 32_verify_topn.py --cluster topn-biz --type index --top 5
+python3 32_verify_topn.py --cluster topn-biz --type node --top 5
+python3 33_topn_edge.py --cluster topn-biz --type index --top 5
 ```
 
-### 节点页签（8 节点 9211-9218）
+`--cluster` 要与注入时的 `CLUSTER` 一致，并依赖 Console 登录、系统集群和相应权限；这些命令仅是待运行步骤，不保证成功或有数据，也不验证 UI 和集群选择器。`09` 不注入 `shard_stats`，因此不能由此声称 shard 覆盖。请检查采样时间范围、命名及报告内容，不将同源一致性描述为独立准确度。
 
-```bash
-sudo bash 02_start.sh biz5
-BIZ_ENDPOINT=http://127.0.0.1:9211 CLUSTER_ID=topn-biz5 sudo -E python3 20_console_init.py
-python3 10_seed.py --endpoint http://127.0.0.1:9211 --node-map node_map.json --recreate
+`30_verify.py` / `31_verify_node.py` 保留用于 advanced TopN 的旧 index/node metrics API。它们需要对应真实或测试 cluster metadata、适当权限和 agentless 等运行前提；注入标签本身不创建 metadata。历史真实集群采样脚本已删除，若要执行需自行准备符合脚本格式与时间范围的独立样本，并核对指标口径；`09 resample` 即使格式可用也不是独立样本。不要把 32/33 的结果当作 30/31 的替代。
 
-bash 41_run_node.sh --duration 200                 # 可写模式，画像最完整
-bash 41_run_node.sh --duration 200 --freeze        # 按需只读：写索引仍可写
-bash 41_run_node.sh --duration 200 --all-readonly  # 全冻结 + 不跑写流量，最省
-```
+`34_raw_long_window.py` 的旧 API probe 同样需要 cluster metadata、权限和相应运行条件，不能把纯注入当成已满足。`35`–`37` 的写入、清理等安全边界及实验结果可靠性尚待复核，暂不推荐执行，也不能作为已验证的优化结论。
 
-`40` 自检端口、`.infini_metrics` 映射、指标新鲜度；`41` 额外检查节点数（非 systemd 环境下该检查会跳过）。
-任一项不满足会直接报错并给出处理命令。`--freeze` 模式即使中途 Ctrl-C 也会把索引恢复可写（trap 兜底）。
+历史 rollup 实验曾记录 64 实体、30 天下 raw/native/direct 的预热 p50/p95 分别为 155/178、20/25、44/51 ms，以及全指标扫描中的精度、边界分钟与字段映射观察；这些仅是待复核的历史记录，不应据此推断生产效果或安全性。
 
-### 评分卡
+## 现有文件
 
-```bash
-python3 42_score.py                        # 最近一轮报告的命中率 / 榜首一致率
-python3 42_score.py --json work/report/topn_view_index_topn-biz_*.json   # 指定报告
-```
+| 文件 | 作用 |
+|---|---|
+| `00_check.sh` | 环境检查 |
+| `01_setup.sh` | 安装 store、Console 及 systemd 单元 |
+| `02_start.sh`、`03_stop.sh`、`04_status.sh` | 启停与状态 |
+| `05_prepare_store.sh`、`08_prepare_system_indices.sh` | 指标及系统索引映射准备 |
+| `09_metrics_feeder.py` | fill、stream、resample、expected、status、prune |
+| `20_console_init.py` | 初始化 Console，不纳管业务集群 |
+| `30_verify.py`、`31_verify_node.py` | 保留的 advanced API 验证 |
+| `32_verify_topn.py`、`33_topn_edge.py` | visualization 视图及边界验证 |
+| `34_raw_long_window.py` | 长窗实验，旧 API probe 有 metadata 前提 |
+| `35_rollup_seed.py`、`36_rollup_ab_bench.py`、`37_rollup_metric_sweep.py` | 安全和结果待复核的 rollup 实验 |
+| `42_score.py` | 已有报告评分；确认报告格式适配后使用 |
+| `benchmark_topn.py` | 独立查询层性能实验，历史结果见 `../reports/perf_topn_benchmark.md` |
 
-输出每张图的 Top5 命中率与榜首一致情况，并给出整轮汇总；对照 `../reports/BASELINE.md`。
-
-## 指标数据维护（TopN 长窗 / 持续写入）
-
-`09_metrics_feeder.py` 直接往监控存储 `.infini_metrics` 灌合成 `index_stats`，供 TopN 页签查询，
-不依赖 Console 采集时序。数据用 `topn90d-<tag>-` 前缀隔离（默认 tag=`main`），挂已纳管的
-`topn-biz5`；计数器按步单调递增，rate/latency（含 merge/scroll）都能配出点。
-
-```bash
-# 1) 预填充最近 90 天（15min 间隔，6 个画像实体，约 5.2 万条）
-python3 09_metrics_feeder.py fill                       # --days 30 --interval 300 可改
-
-# 2) 持续写入：前台运行，Ctrl-C 停止；计数器从 fill 末尾自动续接
-python3 09_metrics_feeder.py stream                     # 默认不清理
-python3 09_metrics_feeder.py stream --interval 60        # 1min 粒度测短窗口
-# 自动清理开关：删保留窗口之外的数据，边界精确到整点，每小时检查一次
-python3 09_metrics_feeder.py stream --auto-prune                              # 默认保留 2160h(90天)
-python3 09_metrics_feeder.py stream --auto-prune --hours 48 --prune-every-hours 2  # 保留48h/每2h查
-
-# 3) 手动清理（先 dry-run 看数量再真删；边界对齐整点）
-python3 09_metrics_feeder.py prune --dry-run
-python3 09_metrics_feeder.py prune --hours 48       # 只保留最近 48 小时
-python3 09_metrics_feeder.py prune --days 90        # 兼容旧写法；--days 0 = 清空该 tag
-
-# 4) 查看数据量 / 时间范围 / 各实体 step
-python3 09_metrics_feeder.py status
-```
-
-**自动清理细节**：`stream` 默认**不清理**；加 `--auto-prune` 后启动时先清一次，之后每
-`--prune-every-hours`（默认 1）小时检查一次。保留窗口用 `--hours N`（默认 2160=90天，
-`--days` 兼容等价 ×24）。删除边界精确到小时：`cutoff = (当前 - N小时) 向下对齐整点`，
-删除严格早于该整点的数据——边界稳定、不随执行时刻的毫秒漂移。清理只作用于本 tag 前缀，
-不碰真实采集数据。
-
-**桶宽选择**（raw 路径有 `searchBucketLimit=6000` 的结构性上限，rate/latency 桶开销 = 3×(桶数+1)）：
-
-| 窗口 | 可用桶宽 | 说明 |
-|---|---|---|
-| 90 天 | 8h / 1d | 900s/1h 会 `budget_exceeded` |
-| 30 天 | 3h / 8h / 1d | 900s/1h 同样超限 |
-| ≤6 小时 | 60s / 900s | 短窗口细桶可用 |
-
-采样间隔要 ≤ 桶宽，否则桶内无相邻观测、配不出 rate/latency。想让「最近 15 分钟」这类短窗口也出数，
-用 `stream --interval 60` 保证写入密度。
-
-实测（2026-11-24）：fill 2 天/5min=3462 条约 0.6s；stream 从 step 577 续接到 581、整点写入、
-SIGINT 优雅停止；prune dry-run/真删数量一致；四类 TopN（indexing_rate/query_latency/
-merge_latency/scroll_latency）均出 6 条曲线。
-
-## 产物
-
-```
-work/raw/stats_*.jsonl        索引真值采样（40/30）
-work/raw/nodes_*.jsonl        节点真值采样（41/31）
-work/raw/stats_view_*.jsonl   视图评测采样（32/33，40/41 的清理不会删 view 文件）
-work/raw/nodes_view_*.jsonl
-work/report/topn_report_*.md / .json    老接口索引评测（30）
-work/report/node_topn_*.md  / .json     老接口节点评测（31）
-work/report/topn_view_*.md  / .json     视图接口评测（32）
-work/report/topn_view_edge_*.json       边界评测（33）
-work/raw/long_window_*.json             长窗实验 manifest（34）
-work/report/raw_long_window_*.json      长窗实验结果（34）
-work/rollup/rollup_*.json               rollup A/B manifest（35 产，36 消费）
-```
-
-## 性能基准（与上面评测流程无关，可单独运行）
-
-`benchmark_topn.py` 在**隔离的 Easysearch 单节点**上用稠密合成样本，对比三种选榜/出图算法
-的查询层耗时：
-
-- `old_*`（候选并集路径）：读写活动候选（固定 60s 桶 + derivative 峰值 + terms partition 0，
-  候选失败则无名称过滤按存储出图）+ 按存储排序的展示查询
-- `new_store`（直查快路径）：单字段 `max` DESC 两阶段——先精确选名，再只取榜上实体的时间桶
-- `new_rate`（复合分页路径）：`composite` 按实体分页拉全量时间桶，客户端差分算分取 TopN
-  （页大小 `--page`，默认 128）
-
-> `old_*` / `new_*` 为历史输出键名，与留档结果兼容，含义如上。
-
-与 00–41 号脚本无关，不需要 Console。
-
-```bash
-# 1. 起隔离实例（集群名是安全护栏，必须一致；端口可换 --port）
-/path/to/easysearch-2.1.2/bin/easysearch \
-  -Ehttp.port=19219 -Ecluster.name=console-topn-local-bench \
-  -Ediscovery.type=single-node -Enetwork.host=127.0.0.1
-
-# 2. 跑基准（默认 24/100/1000/5000 实体 × 15min/24h，约 10 分钟；
-#    快速验证用小矩阵）
-python3 benchmark_topn.py
-python3 benchmark_topn.py --counts 24 --windows 900 --runs 2 --warmup 1
-```
-
-- 断言：快路径榜单与造数基准逐名一致（`matches == top`）；候选并集路径只记录命中数与降级次数。
-- 输出 JSONL 字段：`p50_ms/p95_ms` 客户端墙钟（含本地 HTTP 与 JSON 解析）、
-  `took_p50` 搜索端耗时、`requests` 搜索次数、`bytes_p50` 响应字节、
-  `matches` 榜单命中、`fallbacks` 候选桶超限降级次数。
-- 留档结果见 `../reports/perf_topn_benchmark.{md,json}`（Easysearch 2.1.2、
-  Apple M4、单并发，非生产端到端）。
-- 脚本测完默认删除本次造出的 `topn-bench-*` 索引；`--keep-data` 保留。
-
-## Rollup A/B 基准（35 + 36，独立实验）
-
-量化「TopN 长窗改用 Console 自带 rollup」的收益与代价。`35` 按生产密度（默认 10s 采样，
-真实 `.infini_metrics` 同款）往**独立索引**造数并一键创建/启动 Console setup 自带的
-`index_stats` rollup 作业；`36` 读 manifest 做三路径对照：
-
-- `raw`：关闭改写查源索引（等价 Console 现有 raw 路径查询形状）
-- `native`：同一 DSL + `enable_rollup=true`（Easysearch 自动改写，Console 改动最小）
-- `direct`：手写缩写字段 DSL 直查 rollup 产物（最快，需自维护翻译层）
-
-```bash
-# 冒烟：4 实体 × 10s × 30min，含 rollup 作业跑完，再验正确性
-python3 35_rollup_seed.py --seed --rollup --days 0.02 --entities 4 \
-    --tag smoke --store http://127.0.0.1:19222 --timeout 300
-python3 36_rollup_ab_bench.py --tag smoke --store http://127.0.0.1:19222
-
-# 30 天完整基座（1660 万条，灌数约 7 分钟 + rollup 约 40 分钟）与基准
-# 时长受限时加 --max-seconds 300 分片，下一轮加 --resume 续造
-python3 35_rollup_seed.py --seed --rollup --days 30 --tag 30d \
-    --store http://127.0.0.1:19222 --timeout 3600
-python3 36_rollup_ab_bench.py --tag 30d
-
-python3 35_rollup_seed.py --cleanup --tag smoke --store http://127.0.0.1:19222
-```
-
-**实测基线（2026-11-25，Easysearch 3.0.0 单节点，64 实体 × 30d = 16,588,800 条 →
-rollup 2,764,800 条；8h 桶 ×90，Top20 + Top5 曲线，36 号脚本交错实测，p50/p95 ms）**：
-
-| 路径 | 墙钟（数据预热后，12 轮） | 首次冷缓存实测（28 轮） | 说明 |
-|---|---|---|---|
-| raw | 155/178 | 668/704 | 现有路径 |
-| native | **20/25** | 25/47 | 预热后比 raw 快约 7 倍，冷缓存下约 27 倍 |
-| direct | 44/51 | 129/140 | 需自维护翻译层 |
-
-整分钟闭合窗口下三路径排序与全部曲线点一致（1e-6 容差，float32 噪声 ~1e-7）。
-
-**两个硬性前提**（36 会自动校验并告警）：
-
-1. **窗口必须整分钟闭合**（min 对齐分钟起点、max 对齐分钟结尾）。否则 rollup 边界
-   分钟把窗外样本计入：实测数值偏高 3e-5~6e-5，且可能换榜。生产图表窗口结束于
-   「现在」，历史部分天然满足；尾端 live 部分照走 raw 即可。
-2. **原生改写命中条件**：查询带作业过滤项（`metadata.name`）、`size:0`、单个顶层
-   聚合、字段被作业收录、精确 terms ACL。通配符 ACL、指标数值过滤（`gte:0`）会让
-   改写**静默回退 raw**——为命中而修剪 DSL 时，逐样本 `gte:0` 的语义在 rollup 侧
-   无法表达（指标可能为负时不安全）。
-
-另：rollup 作业对 30 天历史的一次性回填约 40 分钟（单节点、page_size 3000），
-之后每 5 分钟增量成本很小；迟到样本不会进入已生成的 rollup 分钟。
-
-### 全指标扫描结论（2026-11-25，37 号脚本，30 天 × 10s × 64+32 实体，8h 桶）
-
-- **peak 44 个**：数值全部精确（float32 相对噪声 ≤6e-8）；合成数据里 7 个出现 TIE-FLIP
-  （近似平手的排序被噪声翻转，属数据巧合而非系统性误差）。
-- **rate 46 个 / latency 14 个**：计数器最大值 <2²⁴ 时逐点全等（float32 存整数精确）；
-  超过 2²⁴ 的大数值差分（indexing_bytes、transport_*_bytes）出现 2e-05~5e-06 相对误差，
-  计数器越大、增量越小误差越大，静默集群的大计数器可能出现伪「重置」跳点。
-- **ratio 3 个**：分母稳定时精确（os_used_swap/open_file_percent EXACT）；分母波动
-  （磁盘缩容）会低估尖峰——对抗样本里塌缩桶最大相对差 90.6%，仅 1 个点。
-- **对抗实体**：计数器重置 → 双侧同样跳过该差分点；同名换 uuid → 仅边界对断线；
-  breaker 跳变 → 全部 EXACT。
-- **发现的引擎侧问题**：Console 预置 node rollup 作业 ① 未收录
-  `http.current_open`（http_connect_num 只能走 raw）；② 部分字段缩写编号与
-  `_meta` 声明错位一格（docs.count/docs.deleted/fielddata/flush 对/http_rate，
-  实测互换或错位），**直查缩写字段不可靠，原生改写路径不受影响**（引擎自己翻译）。
-- 扫描耗时（存储侧聚合）：raw 逐字段 max 12~18s vs rollup 3~4s；配合 36 号的三路径
-  耗时（原生改写 TopN 20~25ms vs raw 155~668ms）。
-
-
-## 常见问题
-
-| 现象 | 原因 | 处理 |
-|---|---|---|
-| `Access denied ... interactive authentication` | 非 root 调 systemctl | 加 `sudo`；`02/03` 会提前拦下 |
-| 图恒空、`05` 警告映射非 keyword | 指标库被动态映射成 text | `bash 05_prepare_store.sh --rebuild` |
-| 端口都通但指标不更新 | Console 早于集群启动 | `03_stop.sh` 后 `02_start.sh all` |
-| `02_start.sh biz5` 报缺单元 | 没装 biz5 | `sudo bash 06_setup_biz5.sh 8` |
-| 集群管理页 400 / 平台概览 500（报 `Text fields are not optimised for ... set fielddata=true on [xxx]`） | `.infini_cluster` / `.infini_activities` 的 text 字段无 fielddata；页面换聚合维度就冒新字段（health_status → distribution → version → tags → ...） | `bash 08_prepare_system_indices.sh`（自动扫描全部 text 字段补 fielddata，幂等，无需逐个列字段） |
-| 9200 显示 yellow | `.infini_*` 默认 1 副本 | 正常，忽略 |
+历史真实集群报告和对比限制见 `../reports/BASELINE.md`；本次文档更新没有运行验证，也没有建立新的合成数据基线。

@@ -1,10 +1,12 @@
 #!/bin/bash
 # =============================================================================
-# 01_setup.sh —— 解包并生成 TopN 基准环境（两套 Easysearch + 一套 Console）
+# 01_setup.sh —— 解包并生成 TopN 基准环境（一套 Easysearch 存储 + 一套 Console）
 #
-#   9200  存储/采集集群 es-store  （Console 自己的指标库，不参与被监控）
-#   9201  业务集群     es-biz    （造数目标，TopN 榜单就是在这个集群上评测）
+#   9200  存储集群 es-store  （Console 自己的指标库；数据由 09 脚本注入）
 #   9000  Console 1.30.3
+#
+#   被监控的业务集群不再真实搭建：索引/节点维度的指标全部由 09_metrics_feeder.py
+#   以 Console 采集文档的同款形状直接注入 .infini_metrics（离线填数 / 在线数据流）。
 #
 # 幂等：重复执行只补缺失部分，不覆盖已有 data 目录。
 # =============================================================================
@@ -48,22 +50,17 @@ echo "$JAVA_OK" > "$TOPTOOLS/java_home"
 # ---------- 1. 目录 ----------
 [ -f "$PKG_ES" ]      || die "找不到 $PKG_ES"
 [ -f "$PKG_CONSOLE" ] || die "找不到 $PKG_CONSOLE"
-mkdir -p "$TOPTOOLS"/{data/store,data/biz,logs/store,logs/biz,logs/console,work/raw,work/report,console}
+mkdir -p "$TOPTOOLS"/{data/store,data/console-kv,logs/store,logs/console,work/raw,work/report,work/rollup,console}
 log "工作目录: $TOPTOOLS"
 
 # ---------- 2. 解包 ----------
-unpack_es() {  # $1=目标目录
-  local dst=$1
-  if [ ! -x "$dst/bin/easysearch" ]; then
-    log "解包 Easysearch -> $dst"
-    mkdir -p "$dst"
-    tar xzf "$PKG_ES" -C "$dst" --strip-components=1
-  else
-    log "已存在 $dst，跳过解包"
-  fi
-}
-unpack_es "$TOPTOOLS/es-store"
-unpack_es "$TOPTOOLS/es-biz"
+if [ ! -x "$TOPTOOLS/es-store/bin/easysearch" ]; then
+  log "解包 Easysearch -> $TOPTOOLS/es-store"
+  mkdir -p "$TOPTOOLS/es-store"
+  tar xzf "$PKG_ES" -C "$TOPTOOLS/es-store" --strip-components=1
+else
+  log "已存在 es-store，跳过解包"
+fi
 
 if [ ! -x "$TOPTOOLS/console/console-linux-amd64" ]; then
   log "解包 Console -> $TOPTOOLS/console"
@@ -73,26 +70,22 @@ else
 fi
 chmod +x "$TOPTOOLS/console/console-linux-amd64" || true
 
-# ---------- 3. 生成 Easysearch 配置 ----------
-# 关闭 security（基准环境，不需要认证噪音），单节点，本地回环
-write_es_conf() {  # $1=角色(store|biz) $2=http端口 $3=transport端口
-  local role=$1 http=$2 tp=$3 dir="$TOPTOOLS/es-$1"
-  local cfg="$dir/config/easysearch.yml"
-  local cname="topn-$role" nname="node-$role"
-  local data="$TOPTOOLS/data/$role" logs="$TOPTOOLS/logs/$role"
-  mkdir -p "$data" "$logs"
-  cp -n "$cfg" "$cfg.orig" 2>/dev/null || true
-  cat > "$cfg" <<EOF
+# ---------- 3. 生成 Easysearch 配置（单节点 store） ----------
+cfg="$TOPTOOLS/es-store/config/easysearch.yml"
+data="$TOPTOOLS/data/store" logs="$TOPTOOLS/logs/store"
+mkdir -p "$data" "$logs"
+cp -n "$cfg" "$cfg.orig" 2>/dev/null || true
+cat > "$cfg" <<EOF
 # ---- TopN 基准环境生成配置（勿手改，改 01_setup.sh）----
-cluster.name: $cname
-node.name: $nname
+cluster.name: topn-store
+node.name: node-store
 node.roles: [ master, data, ingest, search, remote_cluster_client ]
 
 path.data: $data
 path.logs: $logs
 network.host: 127.0.0.1
-http.port: $http
-transport.port: $tp
+http.port: 9200
+transport.port: 9300
 discovery.type: single-node
 
 # 基准环境：关闭安全认证，便于 curl / console 直接纳管
@@ -112,25 +105,20 @@ http.cors.allow-origin: "*"
 http.cors.allow-headers: X-Requested-With,Content-Type,Content-Length,Authorization
 http.compression: true
 
-# 画像需要快速产生 segments / 缓存抖动，同时保持查询开销可控
 indices.memory.index_buffer_size: 20%
 thread_pool.write.queue_size: 1000
 EOF
-  chmod 600 "$cfg"
-  # JVM 堆
-  if ! grep -qE '^# TOPN-(REPRO|BENCH)' "$dir/config/jvm.options"; then
-    {
-      echo ""
-      echo "# TOPN-BENCH"
-      echo "-Xms${ES_HEAP:-1g}"
-      echo "-Xmx${ES_HEAP:-1g}"
-    } >> "$dir/config/jvm.options"
-  fi
-  log "配置 $cfg (http:$http, data:$data)"
-}
-
-write_es_conf store 9200 9300
-write_es_conf biz   9201 9301
+chmod 600 "$cfg"
+# JVM 堆
+if ! grep -qE '^# TOPN-BENCH' "$TOPTOOLS/es-store/config/jvm.options"; then
+  {
+    echo ""
+    echo "# TOPN-BENCH"
+    echo "-Xms${ES_HEAP:-1g}"
+    echo "-Xmx${ES_HEAP:-1g}"
+  } >> "$TOPTOOLS/es-store/config/jvm.options"
+fi
+log "配置 $cfg (http:9200, data:$data)"
 
 # ---------- 4. 生成 Console 配置 ----------
 CONF="$TOPTOOLS/console/console.yml"
@@ -226,9 +214,6 @@ http_client:
     proxy:
       enabled: false
 EOF
-# Console 自身的 badger 库放在工作目录
-mkdir -p "$TOPTOOLS/data/console-kv"
-
 log "Console 配置: $CONF"
 
 # ---------- 5. Python 依赖 ----------
@@ -287,14 +272,12 @@ EOF
 
   write_unit topn-es-store "TopN repro - easysearch store (9200)" \
     "$TOPTOOLS/es-store" "$TOPTOOLS/es-store/bin/easysearch" ""
-  write_unit topn-es-biz "TopN repro - easysearch biz (9201)" \
-    "$TOPTOOLS/es-biz" "$TOPTOOLS/es-biz/bin/easysearch" ""
   write_unit topn-console "TopN repro - console (9000)" \
     "$TOPTOOLS/console" "$TOPTOOLS/console/console-linux-amd64" \
     $'Environment=INFINI_CONSOLE_ENDPOINT=http://127.0.0.1:9000\nEnvironment=INGEST_CLUSTER_ENDPOINT=http://127.0.0.1:9200'
 
   systemctl daemon-reload
-  log "systemd 单元已安装（systemctl start topn-es-store / topn-es-biz / topn-console）"
+  log "systemd 单元已安装（systemctl start topn-es-store / topn-console）"
 else
   log "非 root 运行：跳过 systemd 单元安装。请用 'wsl -d Ubuntu -u root' 重跑本脚本。"
 fi

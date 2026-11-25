@@ -31,6 +31,6 @@ for p in python3 curl ss systemctl; do
   command -v "$p" >/dev/null && ok "$p: $(command -v $p)" || no "缺少命令: $p"
 done
 
-info "端口占用（9000 / 9200 / 9201 / 9211-9219 / 9300-9301 / 9311-9319）"
-busy=$(ss -lnt 2>/dev/null | grep -E ':(9000|9200|9201|921[0-9]|930[01]|931[0-9])\b' || true)
+info "端口占用（9000 / 9200 / 9300）"
+busy=$(ss -lnt 2>/dev/null | grep -E ':(9000|9200|9300)\b' || true)
 [ -z "$busy" ] && ok "端口空闲" || { echo "$busy"; info "如为本环境旧进程，先 bash 03_stop.sh"; }
