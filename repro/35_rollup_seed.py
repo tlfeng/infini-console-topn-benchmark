@@ -20,7 +20,8 @@
   python3 35_rollup_seed.py --seed --rollup --days 0.02 --interval 10 --entities 4 \
       --tag smoke --store http://127.0.0.1:19222
 
-  # 30 天完整基座（约 1660 万条，灌数约 7 分钟 + rollup 约 10 分钟）
+  # 30 天完整基座（约 1660 万条，灌数约 7 分钟 + rollup 约 10 分钟）；
+  # 时长受限时 --max-seconds 300 分片，下一轮加 --resume 续造
   python3 35_rollup_seed.py --seed --rollup --days 30 --interval 10 --entities 64 \
       --tag 30d --timeout 1800 --store http://127.0.0.1:19222
 
@@ -108,25 +109,43 @@ def seed(args, p):
     steps = int(days * 86400 * 1000) // step_ms
     # 整分钟对齐（含 days 很小的冒烟），且整体早于 now-24h：rollup 引擎要窗口结束+1h，
     # 24h 也是查询切换阈值。end = 最后一个完整分钟起点，36 依赖它做整分钟闭合。
-    now_min = int(time.time() * 1000) // 60000 * 60000
-    offset_sec = (int(days * 86400) + 7200) // 60 * 60
-    start = now_min - offset_sec * 1000
+    state_p = f'/tmp/rollup35_{args.tag}.json'
+    done = 0
+    if getattr(args, 'resume', False) and os.path.exists(state_p):
+        with open(state_p, encoding='utf-8') as fh:
+            st_state = json.load(fh)
+        start, done = st_state['start'], st_state['done']
+        print(f'[seed] 续跑：从 step {done}/{steps} 继续')
+    else:
+        now_min = int(time.time() * 1000) // 60000 * 60000
+        offset_sec = (int(days * 86400) + 7200) // 60 * 60
+        start = now_min - offset_sec * 1000
+        # 重复 --seed 先删旧索引（settings/映射变更会让 PUT 400）
+        try:
+            http('DELETE', f'{args.store}/{p["src"]}')
+        except Exception:
+            pass
     span = steps * step_ms
     covered = span // 60_000
     assert covered >= 1, f'窗口不足 1 分钟：days={days} interval={args.interval}'
 
-    st, resp = http('PUT', f'{args.store}/{p["src"]}', {
-        'settings': {'number_of_shards': 1, 'number_of_replicas': 0, 'refresh_interval': '-1'},
+    if done == 0:
+        st, resp = http('PUT', f'{args.store}/{p["src"]}', {
+        'settings': {'number_of_shards': 1, 'number_of_replicas': 0, 'refresh_interval': '-1',
+                     'index.translog.durability': 'async',
+                     'index.translog.flush_threshold_size': '1gb'},
         'mappings': {'properties': {'timestamp': {'type': 'date'}},
                      'dynamic_templates': [{'strings': {'match_mapping_type': 'string',
                                                         'mapping': {'type': 'keyword'}}}]}})
-    assert st in (200, 201), (st, resp)
+        assert st in (200, 201), (st, resp)
 
     cluster = f'rollup_{args.tag}'
     lines = []
     t0 = time.time()
     total = 0
-    for s in range(steps):
+    boundary = max(1, 60_000 // step_ms)
+    deadline = time.time() + args.max_seconds if args.max_seconds else None
+    for s in range(done, steps):
         ts = start + s * step_ms + 1
         for i in range(args.entities):
             base = 1 + i % 5
@@ -140,7 +159,15 @@ def seed(args, p):
             total += 1
         if len(lines) >= 16000:
             flush(args, p, lines)
+        if deadline and time.time() > deadline and (s + 1) % boundary == 0:
+            flush(args, p, lines)
+            with open(state_p, 'w', encoding='utf-8') as fh:
+                json.dump({'start': start, 'done': s + 1}, fh)
+            print(f'[seed] 时间片用尽，已到 step {s + 1}/{steps}，--resume 继续')
+            return
     flush(args, p, lines)
+    if os.path.exists(state_p):
+        os.remove(state_p)
     st, resp = http('POST', f'{args.store}/{p["src"]}/_refresh')
     assert st == 200, (st, resp)
     count = http('GET', f'{args.store}/{p["src"]}/_count')[1]['count']
@@ -226,6 +253,8 @@ def main():
     ap.add_argument('--entities', type=int, default=64, help='合成索引实体数')
     ap.add_argument('--page-size', type=int, default=3000, help='rollup 作业 page_size')
     ap.add_argument('--timeout', type=int, default=1800, help='等待 rollup 完成的秒数')
+    ap.add_argument('--resume', action='store_true', help='从上次 --max-seconds 断点续造')
+    ap.add_argument('--max-seconds', type=int, default=0, help='单次造数时间预算（0=不限）')
     ap.add_argument('--store', default=STORE, help='监控存储地址')
     ap.add_argument('--tag', default='cont', help='产物标签（区分多套基座）')
     args = ap.parse_args()

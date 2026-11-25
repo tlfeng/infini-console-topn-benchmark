@@ -228,6 +228,7 @@ python3 35_rollup_seed.py --seed --rollup --days 0.02 --entities 4 \
 python3 36_rollup_ab_bench.py --tag smoke --store http://127.0.0.1:19222
 
 # 30 天完整基座（1660 万条，灌数约 7 分钟 + rollup 约 40 分钟）与基准
+# 时长受限时加 --max-seconds 300 分片，下一轮加 --resume 续造
 python3 35_rollup_seed.py --seed --rollup --days 30 --tag 30d \
     --store http://127.0.0.1:19222 --timeout 3600
 python3 36_rollup_ab_bench.py --tag 30d
