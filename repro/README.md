@@ -32,6 +32,7 @@
 | `34_raw_long_window.py` | raw 长窗受控实验：连续/断档合成的桶宽矩阵（独立于 00–41 主流程） | 否 |
 | `35_rollup_seed.py` | 生产密度（10s）合成数据 + Console 自带 rollup 作业一键引导（rollup vs raw A/B 数据基座，独立实验） | 否 |
 | `36_rollup_ab_bench.py` | rollup A/B 基准：raw / 原生改写 / 直查产物三路径的正确性对照与耗时对比（与 35 配套，独立实验） | 否 |
+| `37_rollup_metric_sweep.py` | 全量 TopN 指标 rollup 可行性扫描：107 个指标（index 37 + node 70）逐个对照 rollup 表达 vs raw 精确口径，含对抗实体（计数器重置/换 uuid/分母塌缩/breaker 跳变） | 否 |
 | `common.py` | 公共 helper：HTTP / 登录 / 真值算法 / 采样读取 / 造数工具（各脚本复用） | — |
 | `40_run_all.sh` | 一键：索引页签一轮评测 | 否 |
 | `41_run_node.sh` | 一键：节点页签一轮评测 | 否 |
@@ -257,6 +258,25 @@ rollup 2,764,800 条；8h 桶 ×90，Top20 + Top5 曲线，36 号脚本交错实
 
 另：rollup 作业对 30 天历史的一次性回填约 40 分钟（单节点、page_size 3000），
 之后每 5 分钟增量成本很小；迟到样本不会进入已生成的 rollup 分钟。
+
+### 全指标扫描结论（2026-11-25，37 号脚本，30 天 × 10s × 64+32 实体，8h 桶）
+
+- **peak 44 个**：数值全部精确（float32 相对噪声 ≤6e-8）；合成数据里 7 个出现 TIE-FLIP
+  （近似平手的排序被噪声翻转，属数据巧合而非系统性误差）。
+- **rate 46 个 / latency 14 个**：计数器最大值 <2²⁴ 时逐点全等（float32 存整数精确）；
+  超过 2²⁴ 的大数值差分（indexing_bytes、transport_*_bytes）出现 2e-05~5e-06 相对误差，
+  计数器越大、增量越小误差越大，静默集群的大计数器可能出现伪「重置」跳点。
+- **ratio 3 个**：分母稳定时精确（os_used_swap/open_file_percent EXACT）；分母波动
+  （磁盘缩容）会低估尖峰——对抗样本里塌缩桶最大相对差 90.6%，仅 1 个点。
+- **对抗实体**：计数器重置 → 双侧同样跳过该差分点；同名换 uuid → 仅边界对断线；
+  breaker 跳变 → 全部 EXACT。
+- **发现的引擎侧问题**：Console 预置 node rollup 作业 ① 未收录
+  `http.current_open`（http_connect_num 只能走 raw）；② 部分字段缩写编号与
+  `_meta` 声明错位一格（docs.count/docs.deleted/fielddata/flush 对/http_rate，
+  实测互换或错位），**直查缩写字段不可靠，原生改写路径不受影响**（引擎自己翻译）。
+- 扫描耗时（存储侧聚合）：raw 逐字段 max 12~18s vs rollup 3~4s；配合 36 号的三路径
+  耗时（原生改写 TopN 20~25ms vs raw 155~668ms）。
+
 
 ## 常见问题
 
