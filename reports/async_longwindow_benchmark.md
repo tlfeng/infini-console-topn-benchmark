@@ -40,7 +40,13 @@
 1. **夹具引擎**：`127.0.0.1:19219`，集群名 `console-topn-local-bench`（easysearch 2.1.2，数据目录 `~/github/console-topn-fixture/data`）。注意两点，缺一即失败：
    - 精简 integ-test-zip 构建不带 painless，需把源码树 `modules/lang-painless/build/distributions/lang-painless-2.1.2.zip` 解压进安装目录 `modules/lang-painless/`；
    - `easysearch.yml` 加 `script.allowed_types: [inline]`（不要设 `script.allowed_contexts`，easysearch 的 context 名与 ES 不同，`sort`/`aggregation` 都是非法值）。
-2. **源码**：`git clone`（或 worktree）`tlfeng/console` 分支 `work/async-raw-longwindow` 到目录 `console`，配套 Framework `60ace893` 放到兄弟目录 `framework`（go.mod 用相对 replace `../framework`）；若 framework 缺编译常量，复制 `framework-console-topn/config/topn_test_build_info.go`。
+2. **源码**：`git clone`（或 worktree）`tlfeng/console` 分支 `work/async-raw-longwindow` 到目录 `console`；Framework 取 [`tlfeng/framework@fix/topn-jvm-start`](https://github.com/tlfeng/framework/tree/fix/topn-jvm-start) 的 `60ace893` 放到兄弟目录 `framework`（go.mod 用相对 replace `../framework`）。若 framework 缺编译常量报 `LastFrameworkCommitLog undefined`，在 `framework/config/` 下补一个文件：
+   ```go
+   package config
+
+   const LastFrameworkCommitLog = "a74a6a79"
+   const LastFrameworkVendorCommitLog = "local test"
+   ```
 3. **确认夹具**：`curl 127.0.0.1:19219/topn-fixture-v2-index-2592000/_count` → `12196852`。
 4. **跑基准**：
    ```sh
