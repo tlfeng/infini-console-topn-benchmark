@@ -1,0 +1,693 @@
+{
+  "cluster": "topn-biz",
+  "window": [
+    1795154780255,
+    1795154900355
+  ],
+  "top": 5,
+  "rows": [
+    {
+      "key": "index_storage",
+      "mode": "instant",
+      "unit": "bytes",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_bulk_store",
+        "prod_write_burst",
+        "prod_slow_query",
+        "prod_delete_heavy",
+        "prod_scroll_ctx"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_bulk_store",
+        "prod_slow_query",
+        "prod_scroll_ctx"
+      ],
+      "miss_leader": true,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "doc_count",
+      "mode": "instant",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_write_burst",
+        "prod_bulk_store",
+        "prod_delete_heavy",
+        "prod_slow_query",
+        "prod_scroll_ctx"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_bulk_store",
+        "prod_slow_query",
+        "prod_scroll_ctx"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "docs_deleted",
+      "mode": "instant",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "segment_count",
+      "mode": "instant",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_bulk_store",
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_slow_query",
+        "prod_get_heavy"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_bulk_store",
+        "prod_slow_query",
+        "prod_get_heavy"
+      ],
+      "miss_leader": true,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "indexing_rate",
+      "mode": "rate",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "indexing_bytes",
+      "mode": "rate",
+      "unit": "bytes",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "query_times",
+      "mode": "rate",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_hot_search",
+        "prod_cache_churn",
+        "prod_medium_a",
+        "prod_scroll_ctx",
+        "prod_medium_b"
+      ],
+      "miss": 2,
+      "miss_names": [
+        "prod_scroll_ctx",
+        "prod_medium_b"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "fetch_times",
+      "mode": "rate",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_hot_search",
+        "prod_cache_churn",
+        "prod_medium_a",
+        "prod_scroll_ctx",
+        "prod_medium_b"
+      ],
+      "miss": 2,
+      "miss_names": [
+        "prod_scroll_ctx",
+        "prod_medium_b"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "scroll_times",
+      "mode": "rate",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_scroll_ctx",
+        "prod_delete_heavy",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss": 4,
+      "miss_names": [
+        "prod_scroll_ctx",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss_leader": true,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "merge_times",
+      "mode": "rate",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_write_burst",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b",
+        "prod_bulk_store"
+      ],
+      "miss": 4,
+      "miss_names": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b",
+        "prod_bulk_store"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "refresh_times",
+      "mode": "rate",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "flush_times",
+      "mode": "rate",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "indexing_latency",
+      "mode": "latency",
+      "unit": "ms",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_write_burst",
+        "prod_delete_heavy"
+      ],
+      "miss": 0,
+      "miss_names": [],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "query_latency",
+      "mode": "latency",
+      "unit": "ms",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_slow_query",
+        "prod_bulk_store",
+        "prod_cache_churn",
+        "prod_scroll_ctx",
+        "prod_hot_search"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_slow_query",
+        "prod_bulk_store",
+        "prod_scroll_ctx"
+      ],
+      "miss_leader": true,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "fetch_latency",
+      "mode": "latency",
+      "unit": "ms",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_scroll_ctx",
+        "prod_hot_search",
+        "prod_medium_b",
+        "prod_medium_c",
+        "prod_medium_a"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_scroll_ctx",
+        "prod_medium_b",
+        "prod_medium_c"
+      ],
+      "miss_leader": true,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "scroll_latency",
+      "mode": "latency",
+      "unit": "ms",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_scroll_ctx",
+        "prod_delete_heavy"
+      ],
+      "miss": 1,
+      "miss_names": [
+        "prod_scroll_ctx"
+      ],
+      "miss_leader": true,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "segment_terms_memory",
+      "mode": "instant",
+      "unit": "bytes",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b",
+        "prod_bulk_store",
+        "prod_hot_search"
+      ],
+      "miss": 4,
+      "miss_names": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b",
+        "prod_bulk_store"
+      ],
+      "miss_leader": true,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "segment_points_memory",
+      "mode": "instant",
+      "unit": "bytes",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b",
+        "prod_bulk_store",
+        "prod_hot_search"
+      ],
+      "miss": 4,
+      "miss_names": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b",
+        "prod_bulk_store"
+      ],
+      "miss_leader": true,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "query_cache",
+      "mode": "instant",
+      "unit": "bytes",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_slow_query",
+        "prod_cache_churn",
+        "prod_delete_heavy",
+        "prod_get_heavy",
+        "prod_medium_c"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_slow_query",
+        "prod_get_heavy",
+        "prod_medium_c"
+      ],
+      "miss_leader": true,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "fielddata_cache",
+      "mode": "instant",
+      "unit": "bytes",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_slow_query",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b",
+        "prod_bulk_store"
+      ],
+      "miss": 5,
+      "miss_names": [
+        "prod_slow_query",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b",
+        "prod_bulk_store"
+      ],
+      "miss_leader": true,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "query_cache_count",
+      "mode": "rate",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_cache_churn",
+        "prod_slow_query",
+        "prod_delete_heavy",
+        "prod_get_heavy",
+        "prod_medium_c"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_slow_query",
+        "prod_get_heavy",
+        "prod_medium_c"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "query_cache_hit",
+      "mode": "rate",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_cache_churn",
+        "prod_slow_query",
+        "prod_delete_heavy",
+        "prod_get_heavy",
+        "prod_medium_c"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "prod_slow_query",
+        "prod_get_heavy",
+        "prod_medium_c"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    },
+    {
+      "key": "query_cache_miss",
+      "mode": "rate",
+      "unit": "num",
+      "status": "ok",
+      "shown": [
+        "prod_write_burst",
+        "prod_delete_heavy",
+        "prod_medium_a",
+        "prod_cache_churn",
+        "prod_hot_search"
+      ],
+      "truth": [
+        "prod_cache_churn",
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b",
+        "prod_bulk_store"
+      ],
+      "miss": 4,
+      "miss_names": [
+        "prod_get_heavy",
+        "prod_medium_c",
+        "prod_medium_b",
+        "prod_bulk_store"
+      ],
+      "miss_leader": false,
+      "order": {
+        "max_store": "desc"
+      }
+    }
+  ]
+}

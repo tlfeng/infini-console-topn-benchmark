@@ -1,0 +1,10 @@
+# 统一用 LF：脚本要在 WSL/Linux 里直接跑，CRLF 会导致
+# "syntax error near unexpected token $'do\r'"
+* text=auto eol=lf
+
+*.sh   text eol=lf
+*.py   text eol=lf
+*.md   text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf

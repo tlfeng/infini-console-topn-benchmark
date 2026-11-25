@@ -1,0 +1,14 @@
+{
+  "prod_hot_search": "node-1",
+  "prod_write_burst": "node-2",
+  "prod_medium_a": "node-2",
+  "prod_slow_query": "node-3",
+  "prod_bulk_store": "node-4",
+  "prod_delete_heavy": "node-5",
+  "prod_cache_churn": "node-5",
+  "prod_scroll_ctx": "node-6",
+  "prod_get_heavy": "node-7",
+  "prod_medium_b": "node-7",
+  ".kibana_task_manager_1": "node-8",
+  "prod_medium_c": "node-8"
+}

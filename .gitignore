@@ -1,0 +1,18 @@
+# 运行产物：采样数据、比对报告、日志（示例报告在 reports/ 下，已跟踪）
+repro/work/
+work/
+
+# 安装包：体积大，且受各自许可约束，请自行下载
+*.tar.gz
+*.tgz
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

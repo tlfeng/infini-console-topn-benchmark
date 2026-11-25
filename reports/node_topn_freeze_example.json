@@ -1,0 +1,331 @@
+{
+  "cluster": "topn-biz5",
+  "window": [
+    1795157156460,
+    1795157246652
+  ],
+  "rows": [
+    {
+      "key": "os_cpu",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-6",
+        "node-8",
+        "node-4",
+        "node-7",
+        "node-2"
+      ],
+      "miss": 2,
+      "miss_names": [
+        "node-8",
+        "node-4"
+      ],
+      "miss_leader": false
+    },
+    {
+      "key": "os_used_mem",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-6",
+        "node-8",
+        "node-4",
+        "node-7",
+        "node-2"
+      ],
+      "miss": 2,
+      "miss_names": [
+        "node-8",
+        "node-4"
+      ],
+      "miss_leader": false
+    },
+    {
+      "key": "jvm_heap_used_percent",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-2",
+        "node-1",
+        "node-8",
+        "node-7",
+        "node-3"
+      ],
+      "miss": 2,
+      "miss_names": [
+        "node-8",
+        "node-3"
+      ],
+      "miss_leader": false
+    },
+    {
+      "key": "index_storage",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-4",
+        "node-2",
+        "node-5",
+        "node-7",
+        "node-3"
+      ],
+      "miss": 2,
+      "miss_names": [
+        "node-4",
+        "node-3"
+      ],
+      "miss_leader": true
+    },
+    {
+      "key": "segment_count",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-4",
+        "node-2",
+        "node-5",
+        "node-3",
+        "node-7"
+      ],
+      "miss": 2,
+      "miss_names": [
+        "node-4",
+        "node-3"
+      ],
+      "miss_leader": true
+    },
+    {
+      "key": "docs_count",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-2",
+        "node-4",
+        "node-5",
+        "node-3",
+        "node-7"
+      ],
+      "miss": 2,
+      "miss_names": [
+        "node-4",
+        "node-3"
+      ],
+      "miss_leader": false
+    },
+    {
+      "key": "indexing_rate",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-8",
+        "node-4"
+      ],
+      "miss": 2,
+      "miss_names": [
+        "node-8",
+        "node-4"
+      ],
+      "miss_leader": false
+    },
+    {
+      "key": "query_rate",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-1",
+        "node-5",
+        "node-2",
+        "node-6",
+        "node-7"
+      ],
+      "miss": 0,
+      "miss_names": [],
+      "miss_leader": false
+    },
+    {
+      "key": "scroll_rate",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-6",
+        "node-5",
+        "node-8",
+        "node-4",
+        "node-7"
+      ],
+      "miss": 2,
+      "miss_names": [
+        "node-8",
+        "node-4"
+      ],
+      "miss_leader": false
+    },
+    {
+      "key": "indexing_latency",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-5",
+        "node-2"
+      ],
+      "miss": 0,
+      "miss_names": [],
+      "miss_leader": false
+    },
+    {
+      "key": "query_latency",
+      "shown": [
+        "127.0.0.1:9311",
+        "127.0.0.1:9312",
+        "127.0.0.1:9315",
+        "127.0.0.1:9316",
+        "127.0.0.1:9317"
+      ],
+      "shown_names": [
+        "node-1",
+        "node-2",
+        "node-5",
+        "node-6",
+        "node-7"
+      ],
+      "truth": [
+        "node-4",
+        "node-3",
+        "node-5",
+        "node-8",
+        "node-7"
+      ],
+      "miss": 3,
+      "miss_names": [
+        "node-4",
+        "node-3",
+        "node-8"
+      ],
+      "miss_leader": true
+    }
+  ]
+}
